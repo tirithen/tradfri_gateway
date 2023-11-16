@@ -1,13 +1,15 @@
 use std::{
     net::IpAddr,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use coap::CoAPRequest;
+use mdns_sd::{ServiceDaemon, ServiceEvent};
 
 use crate::{
     device::Device,
-    tradfri_coap::{TradfriAuthenticator, TradfriConnection}, Update,
+    tradfri_coap::{TradfriAuthenticator, TradfriConnection},
+    Update,
 };
 
 pub type TradfriGatewayConnector = TradfriGateway<TradfriGatewayStateWithGatewayCode>;
@@ -20,7 +22,16 @@ pub struct TradfriGateway<S: TradfriGatewayState> {
 }
 
 impl<S: TradfriGatewayState> TradfriGateway<S> {
-    pub fn from_gateway_code<A: Into<IpAddr>>(
+    pub fn from_gateway_code(
+        gateway_code: &str,
+    ) -> Result<TradfriGateway<TradfriGatewayStateWithGatewayCode>, TradfriGatewayError> {
+        Ok(Self::from_gateway_code_and_addr(
+            Self::discover_ip()?,
+            gateway_code,
+        ))
+    }
+
+    pub fn from_gateway_code_and_addr<A: Into<IpAddr>>(
         address: A,
         gateway_code: &str,
     ) -> TradfriGateway<TradfriGatewayStateWithGatewayCode> {
@@ -33,7 +44,18 @@ impl<S: TradfriGatewayState> TradfriGateway<S> {
         }
     }
 
-    pub fn from_identifier_and_session_key<A: Into<IpAddr>>(
+    pub fn from_identifier_and_session_key(
+        identifier: &str,
+        session_key: &str,
+    ) -> Result<TradfriGateway<TradfriGatewayStateWithCredentials>, TradfriGatewayError> {
+        Ok(Self::from_identifier_and_session_key_and_addr(
+            Self::discover_ip()?,
+            identifier,
+            session_key,
+        ))
+    }
+
+    pub fn from_identifier_and_session_key_and_addr<A: Into<IpAddr>>(
         address: A,
         identifier: &str,
         session_key: &str,
@@ -56,6 +78,30 @@ impl<S: TradfriGatewayState> TradfriGateway<S> {
                 .as_secs()
         )
     }
+
+    pub fn discover_ip() -> Result<IpAddr, TradfriGatewayError> {
+        let mdns = ServiceDaemon::new()?;
+        let receiver = mdns.browse("_coap._udp.local.")?;
+
+        let start_time = Instant::now();
+        while let Ok(event) = receiver.recv() {
+            if let ServiceEvent::ServiceResolved(info) = event {
+                if info.get_hostname().starts_with("TRADFRI-Gateway-") {
+                    return Ok(if let Some(ip) = info.get_addresses_v4().iter().next() {
+                        std::net::IpAddr::V4(**ip)
+                    } else {
+                        continue;
+                    });
+                }
+            }
+
+            if Instant::now() - start_time > Duration::from_secs(15) {
+                break;
+            }
+        }
+
+        Err(TradfriGatewayError::DiscoveryTimeout)
+    }
 }
 
 impl TradfriGateway<TradfriGatewayStateWithGatewayCode> {
@@ -70,7 +116,7 @@ impl TradfriGateway<TradfriGatewayStateWithGatewayCode> {
         )?;
 
         let with_credentials =
-            TradfriGateway::<TradfriGatewayStateWithCredentials>::from_identifier_and_session_key(
+            TradfriGateway::<TradfriGatewayStateWithCredentials>::from_identifier_and_session_key_and_addr(
                 self.address,
                 &self.identifier,
                 &session_key,
@@ -186,4 +232,10 @@ pub enum TradfriGatewayError {
 
     #[error("Serde error: {0}")]
     SerdeError(#[from] serde_json::Error),
+
+    #[error("Mdns error: {0}")]
+    MdnsError(#[from] mdns_sd::Error),
+
+    #[error("Gateway not found, mDNS discovery timeout")]
+    DiscoveryTimeout,
 }

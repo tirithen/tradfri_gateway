@@ -22,7 +22,11 @@ pub enum BulbUpdate {
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct DriverUpdate {
-    #[serde(rename = "5850", deserialize_with = "option_bool_from_int", serialize_with = "option_int_from_bool")]
+    #[serde(
+        rename = "5850",
+        deserialize_with = "option_bool_from_int",
+        serialize_with = "option_int_from_bool"
+    )]
     pub on: Option<bool>,
     #[serde(rename = "5851")]
     pub brightness: Option<u8>,
@@ -38,7 +42,11 @@ pub struct BulbColdWarmHexUpdate {
     pub saturation: Option<u32>,
     #[serde(rename = "5711")]
     pub color_temperature: Option<u32>,
-    #[serde(rename = "5850", deserialize_with = "option_bool_from_int", serialize_with = "option_int_from_bool")]
+    #[serde(
+        rename = "5850",
+        deserialize_with = "option_bool_from_int",
+        serialize_with = "option_int_from_bool"
+    )]
     pub on: Option<bool>,
     #[serde(rename = "5851")]
     pub brightness: Option<u8>,
@@ -76,7 +84,11 @@ pub struct BulbRgbXYUpdate {
     pub color_temperature: Option<u32>,
     // #[serde(rename = "5712")]
     // pub transition_time: u32,
-    #[serde(rename = "5850", deserialize_with = "option_bool_from_int", serialize_with = "option_int_from_bool")]
+    #[serde(
+        rename = "5850",
+        deserialize_with = "option_bool_from_int",
+        serialize_with = "option_int_from_bool"
+    )]
     pub on: Option<bool>,
     #[serde(rename = "5851")]
     pub brightness: Option<u8>,

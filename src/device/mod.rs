@@ -5,7 +5,7 @@ use crate::{
     TradfriGatewayStateConnected,
 };
 
-use self::parse::{BulbParsed, DeviceInfoParsed, LightParsed, BulbRgbXYParsed};
+use self::parse::{BulbParsed, BulbRgbXYParsed, DeviceInfoParsed, LightParsed};
 
 mod parse;
 
@@ -106,20 +106,28 @@ impl<S: TradfriGatewayState> Light<S> {
 impl Light<TradfriGatewayStateConnected> {
     pub fn on(&mut self) -> Result<(), DeviceError> {
         let update = Update::BulbUpdate {
-            bulbs: self.bulbs.iter().map(|bulb| match bulb {
-                BulbParsed::DriverParsed(_) => BulbUpdate::DriverUpdate(DriverUpdate {
-                    on: Some(true),
-                    ..Default::default()
-                }),
-                BulbParsed::BulbColdWarmHexParsed(_) => BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
-                    on: Some(true),
-                    ..Default::default()
-                }),
-                BulbParsed::BulbRgbXYParsed(_) => BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
-                    on: Some(true),
-                    ..Default::default()
-                }),
-            }).collect(),
+            bulbs: self
+                .bulbs
+                .iter()
+                .map(|bulb| match bulb {
+                    BulbParsed::DriverParsed(_) => BulbUpdate::DriverUpdate(DriverUpdate {
+                        on: Some(true),
+                        ..Default::default()
+                    }),
+                    BulbParsed::BulbColdWarmHexParsed(_) => {
+                        BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
+                            on: Some(true),
+                            ..Default::default()
+                        })
+                    }
+                    BulbParsed::BulbRgbXYParsed(_) => {
+                        BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
+                            on: Some(true),
+                            ..Default::default()
+                        })
+                    }
+                })
+                .collect(),
         };
         self.gateway.update_device(self.id, update)?;
         self.update()?;
@@ -129,20 +137,28 @@ impl Light<TradfriGatewayStateConnected> {
 
     pub fn off(&mut self) -> Result<(), DeviceError> {
         let update = Update::BulbUpdate {
-            bulbs: self.bulbs.iter().map(|bulb| match bulb {
-                BulbParsed::DriverParsed(_) => BulbUpdate::DriverUpdate(DriverUpdate {
-                    on: Some(false),
-                    ..Default::default()
-                }),
-                BulbParsed::BulbColdWarmHexParsed(_) => BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
-                    on: Some(false),
-                    ..Default::default()
-                }),
-                BulbParsed::BulbRgbXYParsed(_) => BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
-                    on: Some(false),
-                    ..Default::default()
-                }),
-            }).collect(),
+            bulbs: self
+                .bulbs
+                .iter()
+                .map(|bulb| match bulb {
+                    BulbParsed::DriverParsed(_) => BulbUpdate::DriverUpdate(DriverUpdate {
+                        on: Some(false),
+                        ..Default::default()
+                    }),
+                    BulbParsed::BulbColdWarmHexParsed(_) => {
+                        BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
+                            on: Some(false),
+                            ..Default::default()
+                        })
+                    }
+                    BulbParsed::BulbRgbXYParsed(_) => {
+                        BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
+                            on: Some(false),
+                            ..Default::default()
+                        })
+                    }
+                })
+                .collect(),
         };
         self.gateway.update_device(self.id, update)?;
         self.update()?;
