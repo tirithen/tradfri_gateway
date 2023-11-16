@@ -7,8 +7,6 @@ mod result;
 pub(crate) const BUF_SIZE: usize = 8192;
 
 pub(crate) use {
-    authenticator::TradfriAuthenticator,
-    connection::TradfriConnection,
-    error::Error,
+    authenticator::TradfriAuthenticator, connection::TradfriConnection, error::Error,
     result::Result,
 };

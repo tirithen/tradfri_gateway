@@ -3,10 +3,7 @@ use std::sync::{Arc, Mutex};
 use {
     crate::udp_dtls::{ConnectorIdentity, DtlsConnector, DtlsStream, PskIdentity, UdpChannel},
     coap::{
-        message::{
-            packet::Packet,
-            response::CoAPResponse,
-        },
+        message::{packet::Packet, response::CoAPResponse},
         CoAPRequest,
     },
     std::{

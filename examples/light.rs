@@ -33,7 +33,7 @@ fn main() {
             Device::Light(mut light) => {
                 light.on().unwrap();
                 println!("light {:#?}", light);
-            },
+            }
         }
     }
 }

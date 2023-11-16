@@ -139,9 +139,7 @@ impl TradfriGateway<TradfriGatewayStateWithCredentials> {
         Ok(TradfriGateway {
             address: self.address,
             identifier: self.identifier.clone(),
-            state: TradfriGatewayStateConnected {
-                connection,
-            },
+            state: TradfriGatewayStateConnected { connection },
         })
     }
 }

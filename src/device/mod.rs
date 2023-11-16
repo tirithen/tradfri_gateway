@@ -103,12 +103,10 @@ impl Light<TradfriGatewayStateConnected> {
                             ..Default::default()
                         })
                     }
-                    Bulb::BulbRgbXY(_) => {
-                        BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
-                            on: Some(true),
-                            ..Default::default()
-                        })
-                    }
+                    Bulb::BulbRgbXY(_) => BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
+                        on: Some(true),
+                        ..Default::default()
+                    }),
                 })
                 .collect(),
         };
@@ -134,12 +132,10 @@ impl Light<TradfriGatewayStateConnected> {
                             ..Default::default()
                         })
                     }
-                    Bulb::BulbRgbXY(_) => {
-                        BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
-                            on: Some(false),
-                            ..Default::default()
-                        })
-                    }
+                    Bulb::BulbRgbXY(_) => BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
+                        on: Some(false),
+                        ..Default::default()
+                    }),
                 })
                 .collect(),
         };
