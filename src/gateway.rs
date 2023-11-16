@@ -1,9 +1,11 @@
 use std::{
+    cell::RefCell,
     net::IpAddr,
+    rc::Rc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use coap::CoAPRequest;
+use coap::{CoAPRequest, CoAPResponse};
 use mdns_sd::{ServiceDaemon, ServiceEvent};
 
 use crate::{
@@ -12,42 +14,37 @@ use crate::{
     Update,
 };
 
-pub type TradfriGatewayConnector = TradfriGateway<TradfriGatewayStateWithGatewayCode>;
-
 #[derive(Debug, Clone)]
-pub struct TradfriGateway<S: TradfriGatewayState> {
+pub struct TradfriGateway {
     address: IpAddr,
     identifier: String,
-    state: S,
+    session_key: String,
 }
 
-impl<S: TradfriGatewayState> TradfriGateway<S> {
-    pub fn from_gateway_code(
-        gateway_code: &str,
-    ) -> Result<TradfriGateway<TradfriGatewayStateWithGatewayCode>, TradfriGatewayError> {
-        Ok(Self::from_gateway_code_and_addr(
-            Self::discover_ip()?,
-            gateway_code,
-        ))
+impl TradfriGateway {
+    pub fn from_gateway_code(gateway_code: &str) -> Result<Self, TradfriGatewayError> {
+        Self::from_gateway_code_and_addr(Self::discover_ip()?, gateway_code)
     }
 
-    pub fn from_gateway_code_and_addr<A: Into<IpAddr>>(
+    pub fn from_gateway_code_and_addr<A: Into<IpAddr> + Clone>(
         address: A,
         gateway_code: &str,
-    ) -> TradfriGateway<TradfriGatewayStateWithGatewayCode> {
-        TradfriGateway {
-            address: address.into(),
-            identifier: Self::generate_identifier(),
-            state: TradfriGatewayStateWithGatewayCode {
-                gateway_code: gateway_code.into(),
-            },
-        }
+    ) -> Result<Self, TradfriGatewayError> {
+        let identifier = Self::generate_identifier();
+        let session_key =
+            TradfriAuthenticator::authenticate(address.clone(), &identifier, gateway_code, 10)?;
+
+        Ok(TradfriGateway::from_identifier_and_session_key_and_addr(
+            address,
+            &identifier,
+            &session_key,
+        ))
     }
 
     pub fn from_identifier_and_session_key(
         identifier: &str,
         session_key: &str,
-    ) -> Result<TradfriGateway<TradfriGatewayStateWithCredentials>, TradfriGatewayError> {
+    ) -> Result<Self, TradfriGatewayError> {
         Ok(Self::from_identifier_and_session_key_and_addr(
             Self::discover_ip()?,
             identifier,
@@ -59,13 +56,118 @@ impl<S: TradfriGatewayState> TradfriGateway<S> {
         address: A,
         identifier: &str,
         session_key: &str,
-    ) -> TradfriGateway<TradfriGatewayStateWithCredentials> {
-        TradfriGateway {
+    ) -> Self {
+        Self {
             address: address.into(),
             identifier: identifier.into(),
-            state: TradfriGatewayStateWithCredentials {
-                session_key: session_key.into(),
-            },
+            session_key: session_key.into(),
+        }
+    }
+
+    pub fn devices(&mut self) -> Result<DevicesIterator, TradfriGatewayError> {
+        let connection = Rc::new(RefCell::new(self.create_connection()?));
+        let ids = {
+            let mut connection_borrowed = connection.borrow_mut();
+            self.device_ids(&mut connection_borrowed)?
+        };
+        Ok(DevicesIterator {
+            ids,
+            connection,
+            gateway: Rc::new(RefCell::new(self.clone())),
+        })
+    }
+
+    pub fn device(&mut self, id: u32) -> Result<Device, TradfriGatewayError> {
+        let mut connection = self.create_connection()?;
+        self.device_with_connection(id, &mut connection)
+    }
+
+    pub fn device_with_connection(
+        &mut self,
+        id: u32,
+        connection: &mut TradfriConnection,
+    ) -> Result<Device, TradfriGatewayError> {
+        let mut req = coap::CoAPRequest::new();
+        req.set_path(&format!("15001/{}", id));
+        req.set_method(coap::Method::Get);
+
+        let response = self.coap_request(req, Some(connection))?;
+        let device = match Device::new(self.clone(), &response.message.payload) {
+            Ok(d) => d,
+            Err(e) => {
+                return Err(TradfriGatewayError::DeviceError(
+                    id.to_string(),
+                    e.to_string(),
+                ))
+            }
+        };
+
+        Ok(device)
+    }
+
+    fn device_ids(
+        &mut self,
+        connection: &mut TradfriConnection,
+    ) -> Result<Vec<u32>, TradfriGatewayError> {
+        let mut req = CoAPRequest::new();
+        req.set_path("15001");
+        req.set_method(coap::Method::Get);
+
+        let response = self.coap_request(req, Some(connection))?;
+        let device_ids: Vec<u32> = serde_json::from_slice(&response.message.payload)?;
+
+        Ok(device_ids)
+    }
+
+    pub fn groups(&mut self) -> Result<DevicesIterator, TradfriGatewayError> {
+        let connection = Rc::new(RefCell::new(self.create_connection()?));
+        let ids = {
+            let mut connection_borrowed = connection.borrow_mut();
+            self.device_ids(&mut connection_borrowed)?
+        };
+        Ok(DevicesIterator {
+            ids,
+            connection,
+            gateway: Rc::new(RefCell::new(self.clone())),
+        })
+    }
+
+    pub(crate) fn create_connection(&self) -> Result<TradfriConnection, TradfriGatewayError> {
+        Ok(TradfriConnection::new(
+            self.address,
+            self.identifier.as_bytes(),
+            self.session_key.as_bytes(),
+        )?)
+    }
+
+    pub(crate) fn update_device(
+        &mut self,
+        id: u32,
+        update: &Update,
+        connection: Option<&mut TradfriConnection>,
+    ) -> Result<(), TradfriGatewayError> {
+        let mut req = coap::CoAPRequest::new();
+        req.set_path(&format!("15001/{}", id));
+        req.set_method(coap::Method::Put);
+        req.message.payload = serde_json::to_vec(&update)?;
+
+        self.coap_request(req, connection)?;
+
+        Ok(())
+    }
+
+    fn coap_request(
+        &self,
+        req: CoAPRequest,
+        connection: Option<&mut TradfriConnection>,
+    ) -> Result<CoAPResponse, TradfriGatewayError> {
+        if let Some(connection) = connection {
+            connection.send(req)?;
+            Ok(connection.receive()?)
+        } else {
+            let mut connection = self.create_connection()?;
+            connection.send(req)?;
+            Ok(connection.receive()?)
         }
     }
 
@@ -104,119 +206,22 @@ impl<S: TradfriGatewayState> TradfriGateway<S> {
     }
 }
 
-impl TradfriGateway<TradfriGatewayStateWithGatewayCode> {
-    pub fn connect(
-        &mut self,
-    ) -> Result<TradfriGateway<TradfriGatewayStateConnected>, TradfriGatewayError> {
-        let session_key = TradfriAuthenticator::authenticate(
-            self.address,
-            &self.identifier,
-            &self.state.gateway_code,
-            10,
-        )?;
+pub struct DevicesIterator {
+    ids: Vec<u32>,
+    connection: Rc<RefCell<TradfriConnection>>,
+    gateway: Rc<RefCell<TradfriGateway>>,
+}
 
-        let with_credentials =
-            TradfriGateway::<TradfriGatewayStateWithCredentials>::from_identifier_and_session_key_and_addr(
-                self.address,
-                &self.identifier,
-                &session_key,
-            );
+impl Iterator for DevicesIterator {
+    type Item = Result<Device, TradfriGatewayError>;
 
-        with_credentials.connect()
+    fn next(&mut self) -> Option<Self::Item> {
+        let id = self.ids.pop()?;
+        let mut connection_borrowed = self.connection.borrow_mut();
+        let mut gateway_borrowed = self.gateway.borrow_mut();
+        Some(gateway_borrowed.device_with_connection(id, &mut connection_borrowed))
     }
 }
-
-impl TradfriGateway<TradfriGatewayStateWithCredentials> {
-    pub fn connect(
-        &self,
-    ) -> Result<TradfriGateway<TradfriGatewayStateConnected>, TradfriGatewayError> {
-        let connection = TradfriConnection::new(
-            self.address,
-            self.identifier.as_bytes(),
-            self.state.session_key.as_bytes(),
-        )?;
-
-        Ok(TradfriGateway {
-            address: self.address,
-            identifier: self.identifier.clone(),
-            state: TradfriGatewayStateConnected { connection },
-        })
-    }
-}
-
-impl TradfriGateway<TradfriGatewayStateConnected> {
-    pub fn device_ids(&mut self) -> Result<Vec<u32>, TradfriGatewayError> {
-        let mut req = CoAPRequest::new();
-        req.set_path("15001");
-        req.set_method(coap::Method::Get);
-
-        self.state.connection.send(req)?;
-        let response = self.state.connection.receive()?;
-        let device_ids: Vec<u32> = serde_json::from_slice(&response.message.payload)?;
-
-        Ok(device_ids)
-    }
-
-    pub fn device(
-        &mut self,
-        id: u32,
-    ) -> Result<Device<TradfriGatewayStateConnected>, TradfriGatewayError> {
-        let mut req = coap::CoAPRequest::new();
-        req.set_path(&format!("15001/{}", id));
-        req.set_method(coap::Method::Get);
-
-        self.state.connection.send(req)?;
-        let response = self.state.connection.receive()?;
-
-        let device = match Device::new(self.clone(), &response.message.payload) {
-            Ok(d) => d,
-            Err(e) => {
-                return Err(TradfriGatewayError::DeviceError(
-                    id.to_string(),
-                    e.to_string(),
-                ))
-            }
-        };
-
-        Ok(device)
-    }
-
-    pub fn update_device(&mut self, id: u32, update: Update) -> Result<(), TradfriGatewayError> {
-        let mut req = coap::CoAPRequest::new();
-        req.set_path(&format!("15001/{}", id));
-        req.set_method(coap::Method::Put);
-
-        req.message.payload = serde_json::to_vec(&update)?;
-
-        self.state.connection.send(req)?;
-        self.state.connection.receive()?;
-
-        Ok(())
-    }
-}
-
-pub trait TradfriGatewayState {}
-
-#[derive(Debug, Clone)]
-pub struct TradfriGatewayStateWithGatewayCode {
-    gateway_code: String,
-}
-
-impl TradfriGatewayState for TradfriGatewayStateWithGatewayCode {}
-
-#[derive(Debug, Clone)]
-pub struct TradfriGatewayStateWithCredentials {
-    session_key: String,
-}
-
-impl TradfriGatewayState for TradfriGatewayStateWithCredentials {}
-
-#[derive(Debug, Clone)]
-pub struct TradfriGatewayStateConnected {
-    connection: TradfriConnection,
-}
-
-impl TradfriGatewayState for TradfriGatewayStateConnected {}
 
 #[derive(Debug, thiserror::Error)]
 pub enum TradfriGatewayError {

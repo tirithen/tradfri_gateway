@@ -1,29 +1,26 @@
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
-
-use crate::{
-    device::parse::DeviceType, TradfriGateway, TradfriGatewayError, TradfriGatewayState,
-    TradfriGatewayStateConnected,
-};
-
-use self::parse::{Bulb, DeviceInfo, LightDevice};
-
-mod parse;
-
 mod color;
 pub use color::*;
+
+mod light;
+pub use light::*;
+
+mod parse;
+pub use parse::*;
 
 mod update;
 pub use update::*;
 
+use crate::{TradfriGateway, TradfriGatewayError};
+
 #[derive(Debug)]
-pub enum Device<S: TradfriGatewayState> {
+pub enum Device {
     RemoteControl,
-    Light(Light<S>),
+    Light(Box<Light>),
 }
 
-impl<S: TradfriGatewayState> Device<S> {
-    pub fn new(gateway: TradfriGateway<S>, bytes: &[u8]) -> Result<Device<S>, DeviceError> {
-        let device_type: DeviceType = match serde_json::from_slice(bytes) {
+impl Device {
+    pub fn new(gateway: TradfriGateway, bytes: &[u8]) -> Result<Device, DeviceError> {
+        let device_type: DeviceTypeParsed = match serde_json::from_slice(bytes) {
             Ok(d) => d,
             Err(error) => {
                 return Err(DeviceError::SerdeError(
@@ -36,131 +33,12 @@ impl<S: TradfriGatewayState> Device<S> {
         match device_type.device_type {
             0 => Ok(Device::RemoteControl),
             2 => {
-                let light = Light::<S>::new(gateway, bytes)?;
-                let device = Device::Light(light);
+                let light = Light::new(gateway, bytes)?;
+                let device = Device::Light(Box::new(light));
                 Ok(device)
             }
             _ => Err(DeviceError::UnsupportedDevice(device_type.device_type)),
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct Light<S: TradfriGatewayState> {
-    gateway: TradfriGateway<S>,
-    info: DeviceInfo,
-    id: u32,
-    name: String,
-    creation_date: DateTime<Utc>,
-    last_seen: DateTime<Utc>,
-    reachable: bool,
-    bulbs: Vec<Bulb>,
-}
-
-impl<S: TradfriGatewayState> Light<S> {
-    pub fn new(gateway: TradfriGateway<S>, bytes: &[u8]) -> Result<Self, DeviceError> {
-        let parsed: LightDevice = match serde_json::from_slice(bytes) {
-            Ok(p) => p,
-            Err(error) => {
-                return Err(DeviceError::SerdeError(
-                    error.to_string(),
-                    String::from_utf8_lossy(bytes).to_string(),
-                ))
-            }
-        };
-
-        Ok(Self {
-            gateway,
-            info: parsed.info,
-            id: parsed.id,
-            name: parsed.name,
-            creation_date: Utc.from_utc_datetime(
-                &NaiveDateTime::from_timestamp_opt(parsed.creation_date.into(), 0).unwrap(),
-            ),
-            last_seen: Utc.from_utc_datetime(
-                &NaiveDateTime::from_timestamp_opt(parsed.last_seen.into(), 0).unwrap(),
-            ),
-            reachable: parsed.reachable,
-            bulbs: parsed.bulbs,
-        })
-    }
-}
-
-impl Light<TradfriGatewayStateConnected> {
-    pub fn on(&mut self) -> Result<(), DeviceError> {
-        let update = Update::BulbUpdate {
-            bulbs: self
-                .bulbs
-                .iter()
-                .map(|bulb| match bulb {
-                    Bulb::Driver(_) => BulbUpdate::DriverUpdate(DriverUpdate {
-                        on: Some(true),
-                        ..Default::default()
-                    }),
-                    Bulb::BulbColdWarmHex(_) => {
-                        BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
-                            on: Some(true),
-                            ..Default::default()
-                        })
-                    }
-                    Bulb::BulbRgbXY(_) => BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
-                        on: Some(true),
-                        ..Default::default()
-                    }),
-                })
-                .collect(),
-        };
-        self.gateway.update_device(self.id, update)?;
-        self.update()?;
-
-        Ok(())
-    }
-
-    pub fn off(&mut self) -> Result<(), DeviceError> {
-        let update = Update::BulbUpdate {
-            bulbs: self
-                .bulbs
-                .iter()
-                .map(|bulb| match bulb {
-                    Bulb::Driver(_) => BulbUpdate::DriverUpdate(DriverUpdate {
-                        on: Some(false),
-                        ..Default::default()
-                    }),
-                    Bulb::BulbColdWarmHex(_) => {
-                        BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
-                            on: Some(false),
-                            ..Default::default()
-                        })
-                    }
-                    Bulb::BulbRgbXY(_) => BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
-                        on: Some(false),
-                        ..Default::default()
-                    }),
-                })
-                .collect(),
-        };
-        self.gateway.update_device(self.id, update)?;
-        self.update()?;
-
-        Ok(())
-    }
-
-    pub fn update(&mut self) -> Result<(), DeviceError> {
-        let device = self.gateway.device(self.id)?;
-
-        if let Device::Light(light) = device {
-            self.info = light.info;
-            self.id = light.id;
-            self.name = light.name;
-            self.creation_date = light.creation_date;
-            self.last_seen = light.last_seen;
-            self.reachable = light.reachable;
-            self.bulbs = light.bulbs;
-        } else {
-            return Err(DeviceError::ExpectedDeviceType("Light".to_string()));
-        }
-
-        Ok(())
     }
 }
 
