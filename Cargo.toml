@@ -1,7 +1,15 @@
 [package]
 name = "tradfri_gateway"
+authors = ["Fredrik Söderström <tirithen@gmail.com>"]
+description = "A rust crate for connecting to the Ikea TRÅDFRI gateway, and for controlling your home devices through the gateway."
+homepage = "https://github.com/tirithen/tradfri_gateway"
+repository = "https://github.com/tirithen/tradfri_gateway"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 edition = "2021"
+keywords = ["ikea", "tradfri", "coap", "dtls", "homeautomation"]
+categories = ["api-bindings", "network-programming"]
 
 [dependencies]
 coap = "0.8"
