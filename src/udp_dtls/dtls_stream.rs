@@ -1,4 +1,4 @@
-use super::{Certificate, Error, SrtpProfile};
+use super::{Certificate, Error};
 use openssl::ssl;
 use openssl::ssl::SslStream;
 use std::{fmt, io};
@@ -30,21 +30,6 @@ impl<S: io::Read + io::Write> DtlsStream<S> {
             .ssl()
             .export_keying_material(&mut buf, "EXTRACTOR-dtls_srtp", None)?;
         Ok(buf)
-    }
-
-    /// Gets the SRTP profile selected by handshake.
-    ///
-    /// # Underlying SSL
-    /// DTLS extension "use_srtp" as defined in RFC5764 has to be enabled.
-    ///
-    /// This corresponds to [`SSL_get_selected_srtp_profile`].
-    ///
-    /// [`SSL_get_selected_srtp_profile`]: https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_tlsext_use_srtp.html
-    pub fn selected_srtp_profile(&self) -> Result<Option<SrtpProfile>, Error> {
-        match self.0.ssl().selected_srtp_profile() {
-            Some(profile) => Ok(profile.name().parse()?).map(Some),
-            None => Ok(None),
-        }
     }
 
     /// Returns a shared reference to the underlying stream.

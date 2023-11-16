@@ -1,4 +1,4 @@
-use super::{Certificate, ConnectorIdentity, DtlsConnector, Protocol, Result, SrtpProfile};
+use super::{Certificate, ConnectorIdentity, DtlsConnector, Protocol, Result};
 
 /// A builder for `DtlsConnector`s.
 ///
@@ -11,7 +11,6 @@ use super::{Certificate, ConnectorIdentity, DtlsConnector, Protocol, Result, Srt
 /// - Enabling Server Name Indication (SNI)
 pub struct DtlsConnectorBuilder {
     pub(crate) identity: Option<ConnectorIdentity>,
-    pub(crate) srtp_profiles: Vec<SrtpProfile>,
     pub(crate) min_protocol: Option<Protocol>,
     pub(crate) max_protocol: Option<Protocol>,
     pub(crate) root_certificates: Vec<Certificate>,
@@ -61,33 +60,6 @@ impl DtlsConnectorBuilder {
         protocol: Option<Protocol>,
     ) -> &mut DtlsConnectorBuilder {
         self.max_protocol = protocol;
-        self
-    }
-
-    /// Enables the DTLS extension 'use_srtp' as defined in RFC5764.
-    ///
-    /// # Underlying SSL
-    /// This corresponds to [`SSL_CTX_set_tlsext_use_srtp`].
-    ///
-    /// [`SSL_CTX_set_tlsext_use_srtp`]: https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_tlsext_use_srtp.html
-    pub fn add_srtp_profile(&mut self, profile: SrtpProfile) -> &mut DtlsConnectorBuilder {
-        self.srtp_profiles.push(profile);
-        self
-    }
-
-    /// Adds a certificate to the set of roots that the connector will trust.
-    ///
-    /// The connector will use the system's trust root by default. This method can be used to add
-    /// to that set when communicating with servers not trusted by the system.
-    ///
-    /// Defaults to an empty set.
-    ///
-    /// # Underlying SSL
-    /// This will add a certificate to the certificate store. [`X509_STORE_add_cert`].
-    ///
-    /// [`X509_STORE_add_cert`]: https://www.openssl.org/docs/man1.1.1/man3/X509_STORE_add_cert.html
-    pub fn add_root_certificate(&mut self, cert: Certificate) -> &mut DtlsConnectorBuilder {
-        self.root_certificates.push(cert);
         self
     }
 

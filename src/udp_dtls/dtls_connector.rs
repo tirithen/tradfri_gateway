@@ -31,29 +31,8 @@ impl DtlsConnector {
 
         let mut connector = SslConnector::builder(SslMethod::dtls()).unwrap();
 
-        if !builder.srtp_profiles.is_empty() {
-            let srtp_line = builder
-                .srtp_profiles
-                .iter()
-                .map(|p| p.to_string())
-                .collect::<Vec<_>>()
-                .join(":");
-            connector.set_tlsext_use_srtp(&srtp_line)?;
-        }
-
         if let Some(ref identity) = builder.identity {
             match identity {
-                ConnectorIdentity::Certificate(identity) => {
-                    let identity = identity.as_ref();
-
-                    connector.set_certificate(&identity.cert)?;
-                    connector.set_private_key(&identity.pkey)?;
-                    if let Some(ref chain) = identity.chain {
-                        for cert in chain.iter().rev() {
-                            connector.add_extra_chain_cert(cert.to_owned())?;
-                        }
-                    }
-                }
                 ConnectorIdentity::Psk(identity_) => {
                     let identity_ = identity_.clone();
 
@@ -98,7 +77,6 @@ impl DtlsConnector {
     pub fn builder() -> DtlsConnectorBuilder {
         DtlsConnectorBuilder {
             identity: None,
-            srtp_profiles: vec![],
             min_protocol: Some(Protocol::Dtlsv10),
             max_protocol: None,
             root_certificates: vec![],

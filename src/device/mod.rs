@@ -1,11 +1,11 @@
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
 use crate::{
-    device::parse::DeviceTypeParsed, TradfriGateway, TradfriGatewayError, TradfriGatewayState,
+    device::parse::DeviceType, TradfriGateway, TradfriGatewayError, TradfriGatewayState,
     TradfriGatewayStateConnected,
 };
 
-use self::parse::{BulbParsed, BulbRgbXYParsed, DeviceInfoParsed, LightParsed};
+use self::parse::{Bulb, DeviceInfo, LightDevice};
 
 mod parse;
 
@@ -23,7 +23,7 @@ pub enum Device<S: TradfriGatewayState> {
 
 impl<S: TradfriGatewayState> Device<S> {
     pub fn new(gateway: TradfriGateway<S>, bytes: &[u8]) -> Result<Device<S>, DeviceError> {
-        let device_type: DeviceTypeParsed = match serde_json::from_slice(bytes) {
+        let device_type: DeviceType = match serde_json::from_slice(bytes) {
             Ok(d) => d,
             Err(error) => {
                 return Err(DeviceError::SerdeError(
@@ -45,23 +45,6 @@ impl<S: TradfriGatewayState> Device<S> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct DeviceInfo {
-    manufacturer: String,
-    product: String,
-    firmware: String,
-}
-
-impl From<DeviceInfoParsed> for DeviceInfo {
-    fn from(value: DeviceInfoParsed) -> Self {
-        Self {
-            manufacturer: value.manufacturer,
-            product: value.product,
-            firmware: value.firmware,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Light<S: TradfriGatewayState> {
     gateway: TradfriGateway<S>,
@@ -71,12 +54,12 @@ pub struct Light<S: TradfriGatewayState> {
     creation_date: DateTime<Utc>,
     last_seen: DateTime<Utc>,
     reachable: bool,
-    bulbs: Vec<BulbParsed>,
+    bulbs: Vec<Bulb>,
 }
 
 impl<S: TradfriGatewayState> Light<S> {
     pub fn new(gateway: TradfriGateway<S>, bytes: &[u8]) -> Result<Self, DeviceError> {
-        let parsed: LightParsed = match serde_json::from_slice(bytes) {
+        let parsed: LightDevice = match serde_json::from_slice(bytes) {
             Ok(p) => p,
             Err(error) => {
                 return Err(DeviceError::SerdeError(
@@ -88,7 +71,7 @@ impl<S: TradfriGatewayState> Light<S> {
 
         Ok(Self {
             gateway,
-            info: parsed.info.into(),
+            info: parsed.info,
             id: parsed.id,
             name: parsed.name,
             creation_date: Utc.from_utc_datetime(
@@ -110,17 +93,17 @@ impl Light<TradfriGatewayStateConnected> {
                 .bulbs
                 .iter()
                 .map(|bulb| match bulb {
-                    BulbParsed::DriverParsed(_) => BulbUpdate::DriverUpdate(DriverUpdate {
+                    Bulb::Driver(_) => BulbUpdate::DriverUpdate(DriverUpdate {
                         on: Some(true),
                         ..Default::default()
                     }),
-                    BulbParsed::BulbColdWarmHexParsed(_) => {
+                    Bulb::BulbColdWarmHex(_) => {
                         BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
                             on: Some(true),
                             ..Default::default()
                         })
                     }
-                    BulbParsed::BulbRgbXYParsed(_) => {
+                    Bulb::BulbRgbXY(_) => {
                         BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
                             on: Some(true),
                             ..Default::default()
@@ -141,17 +124,17 @@ impl Light<TradfriGatewayStateConnected> {
                 .bulbs
                 .iter()
                 .map(|bulb| match bulb {
-                    BulbParsed::DriverParsed(_) => BulbUpdate::DriverUpdate(DriverUpdate {
+                    Bulb::Driver(_) => BulbUpdate::DriverUpdate(DriverUpdate {
                         on: Some(false),
                         ..Default::default()
                     }),
-                    BulbParsed::BulbColdWarmHexParsed(_) => {
+                    Bulb::BulbColdWarmHex(_) => {
                         BulbUpdate::BulbColdWarmHexUpdate(BulbColdWarmHexUpdate {
                             on: Some(false),
                             ..Default::default()
                         })
                     }
-                    BulbParsed::BulbRgbXYParsed(_) => {
+                    Bulb::BulbRgbXY(_) => {
                         BulbUpdate::BulbRgbXYUpdate(BulbRgbXYUpdate {
                             on: Some(false),
                             ..Default::default()

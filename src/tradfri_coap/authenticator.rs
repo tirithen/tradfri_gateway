@@ -9,8 +9,6 @@ use {
 struct AuthResponse {
     #[serde(rename = "9091")]
     pre_shared_key: String,
-    #[serde(rename = "9029")]
-    version: String,
 }
 
 pub struct TradfriAuthenticator;

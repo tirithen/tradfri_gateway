@@ -1,6 +1,6 @@
-use super::{MidHandshakeDtlsStream, SrtpProfile};
+use super::MidHandshakeDtlsStream;
 use openssl::{error::ErrorStack, ssl, x509::X509VerifyResult};
-use std::{error, fmt, result, str::FromStr};
+use std::{error, fmt, result};
 
 /// A typedef of the result-type returned by many methods.
 pub type Result<T> = result::Result<T, Error>;
@@ -19,14 +19,6 @@ pub enum Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Normal(ref e) => error::Error::description(e),
-            Error::Ssl(ref e, _) => error::Error::description(e),
-            Error::SrtpProfile(ref e) => error::Error::description(e),
-        }
-    }
-
     fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::Normal(ref e) => error::Error::source(e),
@@ -116,20 +108,6 @@ impl fmt::Display for SrtpProfileError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             SrtpProfileError::BadProfile => fmt.write_str("bad SRTP profile"),
-        }
-    }
-}
-
-impl FromStr for SrtpProfile {
-    type Err = SrtpProfileError;
-
-    fn from_str(s: &str) -> result::Result<Self, SrtpProfileError> {
-        match s {
-            "SRTP_AES128_CM_SHA1_80" => Ok(SrtpProfile::Aes128CmSha180),
-            "SRTP_AES128_CM_SHA1_32" => Ok(SrtpProfile::Aes128CmSha132),
-            "SRTP_AEAD_AES_128_GCM" => Ok(SrtpProfile::AeadAes128Gcm),
-            "SRTP_AEAD_AES_256_GCM" => Ok(SrtpProfile::AeadAes256Gcm),
-            _ => Err(SrtpProfileError::BadProfile),
         }
     }
 }

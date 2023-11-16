@@ -23,12 +23,10 @@ pub fn try_set_supported_protocols(
     options |= match min {
         None | Some(Protocol::Dtlsv10) => SslOptions::empty(),
         Some(Protocol::Dtlsv12) => SslOptions::NO_DTLSV1,
-        Some(Protocol::__NonExhaustive) => unreachable!(),
     };
     options |= match max {
         None | Some(Protocol::Dtlsv12) => SslOptions::empty(),
         Some(Protocol::Dtlsv10) => SslOptions::NO_DTLSV1_2,
-        Some(Protocol::__NonExhaustive) => unreachable!(),
     };
 
     ctx.set_options(options | allow_unsafe_legacy_renegotiation);

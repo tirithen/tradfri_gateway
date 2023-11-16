@@ -140,7 +140,6 @@ impl TradfriGateway<TradfriGatewayStateWithCredentials> {
             address: self.address,
             identifier: self.identifier.clone(),
             state: TradfriGatewayStateConnected {
-                session_key: self.state.session_key.clone(),
                 connection,
             },
         })
@@ -216,7 +215,6 @@ impl TradfriGatewayState for TradfriGatewayStateWithCredentials {}
 
 #[derive(Debug, Clone)]
 pub struct TradfriGatewayStateConnected {
-    session_key: String,
     connection: TradfriConnection,
 }
 

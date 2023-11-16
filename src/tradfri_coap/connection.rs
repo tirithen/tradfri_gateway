@@ -1,15 +1,13 @@
 use std::sync::{Arc, Mutex};
 
 use {
-    super::{device_worker::DeviceWorker, Device, Error},
     crate::udp_dtls::{ConnectorIdentity, DtlsConnector, DtlsStream, PskIdentity, UdpChannel},
     coap::{
         message::{
-            packet::{ObserveOption, Packet},
-            request::Method,
-            response::{CoAPResponse, Status},
+            packet::Packet,
+            response::CoAPResponse,
         },
-        CoAPRequest, IsMessage,
+        CoAPRequest,
     },
     std::{
         io::{self, Read, Write},
@@ -23,9 +21,6 @@ const TF_PORT: u16 = 5684;
 #[derive(Debug, Clone)]
 pub struct TradfriConnection {
     stream: Arc<Mutex<DtlsStream<UdpChannel>>>,
-    addr: IpAddr,
-    key_name: String,
-    pre_shared_key: String,
 }
 
 impl TradfriConnection {
@@ -64,65 +59,7 @@ impl TradfriConnection {
 
         Ok(Self {
             stream: Arc::new(Mutex::new(connector.connect("", client_channel)?)),
-            addr,
-            key_name: String::from_utf8_lossy(identity).into_owned().to_string(),
-            pre_shared_key: String::from_utf8_lossy(key).into_owned().to_string(),
         })
-    }
-
-    pub fn devices(&mut self) -> super::Result<Vec<Device>> {
-        let mut req = CoAPRequest::new();
-        req.set_path("15001");
-        req.set_method(Method::Get);
-
-        self.send(req)?;
-
-        let response = self.receive()?;
-
-        let device_ids: Vec<u32> = serde_json::from_slice(&response.message.payload)?;
-        let mut devices = Vec::<Device>::with_capacity(device_ids.len());
-
-        for device_id in device_ids {
-            let mut req = coap::CoAPRequest::new();
-            req.set_path(&format!("15001/{}", device_id));
-            req.set_method(Method::Get);
-
-            self.send(req)?;
-
-            let response = self.receive()?;
-
-            match Device::new(self.worker(), &response.message.payload) {
-                Ok(device) => devices.push(device),
-                Err(e) => eprintln!("{:?}", e),
-            };
-        }
-
-        Ok(devices)
-    }
-
-    pub fn observe<F>(&mut self, resource_path: &str, cb: F) -> super::Result<()>
-    where
-        F: Fn(Packet),
-    {
-        // Mostly stolen from the coap super
-
-        let mut message_id = 0u16;
-        let mut req = CoAPRequest::new();
-        req.set_path(resource_path);
-        req.set_observe(vec![ObserveOption::Register as u8]);
-        req.set_message_id(Self::gen_message_id(&mut message_id));
-
-        self.send(req)?;
-
-        let response = self.receive()?;
-        if *response.get_status() != Status::Content {
-            return Err(Error::new("Resource not found"));
-        }
-
-        loop {
-            let res = self.receive()?;
-            cb(res.message);
-        }
     }
 
     pub fn send(&mut self, req: CoAPRequest) -> super::Result<usize> {
@@ -135,35 +72,6 @@ impl TradfriConnection {
         let packet = Packet::from_bytes(&buf[0..len])?;
 
         Ok(CoAPResponse { message: packet })
-    }
-
-    pub fn set_timeout(&mut self, secs: Option<u64>) -> super::Result<()> {
-        self.stream
-            .lock()
-            .unwrap()
-            .get_mut()
-            .socket
-            .set_read_timeout(secs.map(Duration::from_secs))?;
-        self.stream
-            .lock()
-            .unwrap()
-            .get_mut()
-            .socket
-            .set_write_timeout(secs.map(Duration::from_secs))?;
-        Ok(())
-    }
-
-    fn gen_message_id(message_id: &mut u16) -> u16 {
-        (*message_id) += 1;
-        *message_id
-    }
-
-    fn worker(&self) -> DeviceWorker {
-        DeviceWorker::new(
-            self.addr,
-            self.key_name.clone(),
-            self.pre_shared_key.clone(),
-        )
     }
 }
 

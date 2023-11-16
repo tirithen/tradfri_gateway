@@ -3,13 +3,13 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 use crate::{ColdWarmColor, RgbColor};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct DeviceTypeParsed {
+pub struct DeviceType {
     #[serde(rename = "5750")]
     pub device_type: u32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct DeviceInfoParsed {
+pub struct DeviceInfo {
     #[serde(rename = "0")]
     pub manufacturer: String,
     #[serde(rename = "1")]
@@ -19,7 +19,7 @@ pub struct DeviceInfoParsed {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct DeviceInfoWithBatteryParsed {
+pub struct DeviceInfoWithBattery {
     #[serde(rename = "0")]
     pub manufacturer: String,
     #[serde(rename = "1")]
@@ -31,11 +31,11 @@ pub struct DeviceInfoWithBatteryParsed {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct LightParsed {
+pub struct LightDevice {
     #[serde(rename = "3")]
-    pub info: DeviceInfoParsed,
+    pub info: DeviceInfo,
     #[serde(rename = "3311")]
-    pub bulbs: Vec<BulbParsed>,
+    pub bulbs: Vec<Bulb>,
     #[serde(rename = "9001")]
     pub name: String,
     #[serde(rename = "9002")]
@@ -50,15 +50,15 @@ pub struct LightParsed {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
-pub enum BulbParsed {
-    DriverParsed(DriverParsed),
-    BulbColdWarmHexParsed(BulbColdWarmHexParsed),
-    // BulbRgbHexParsed(BulbRgbHexParsed),
-    BulbRgbXYParsed(BulbRgbXYParsed),
+pub enum Bulb {
+    Driver(Driver),
+    BulbColdWarmHex(BulbColdWarmHex),
+    // BulbRgbHex(BulbRgbHex),
+    BulbRgbXY(BulbRgbXY),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct DriverParsed {
+pub struct Driver {
     #[serde(rename = "5850", deserialize_with = "bool_from_int")]
     pub on: bool,
     #[serde(rename = "5851")]
@@ -66,7 +66,7 @@ pub struct DriverParsed {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct BulbColdWarmHexParsed {
+pub struct BulbColdWarmHex {
     #[serde(rename = "5706")]
     pub color_hex: ColdWarmColor,
     #[serde(rename = "5707")]
@@ -82,9 +82,9 @@ pub struct BulbColdWarmHexParsed {
 }
 
 // #[derive(Debug, Clone, Deserialize, Serialize)]
-// pub struct BulbRgbHexParsed {
+// pub struct BulbRgbHex {
 //     #[serde(rename = "5706")]
-//     pub color_hex: RgbColorParsed,
+//     pub color_hex: RgbColor,
 //     #[serde(rename = "5707")]
 //     pub hue: Option<u32>,
 //     #[serde(rename = "5708")]
@@ -100,7 +100,7 @@ pub struct BulbColdWarmHexParsed {
 // }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct BulbRgbXYParsed {
+pub struct BulbRgbXY {
     #[serde(rename = "5706")]
     pub color_hex: RgbColor,
     #[serde(rename = "5707")]
