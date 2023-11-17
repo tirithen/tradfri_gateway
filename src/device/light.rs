@@ -3,7 +3,7 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use crate::{
     tradfri_coap::TradfriConnection, BulbColdWarmHexUpdate, BulbParsed, BulbRgbXYUpdate,
     BulbUpdate, Device, DeviceError, DeviceInfoParsed, DriverUpdate, LightDeviceParsed,
-    TradfriGateway, Update,
+    TradfriGateway, DeviceUpdate,
 };
 
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Light {
     }
 
     pub fn on(&mut self) -> Result<(), DeviceError> {
-        let update = Update::BulbUpdate {
+        let update = DeviceUpdate::BulbUpdate {
             bulbs: self
                 .bulbs
                 .iter()
@@ -79,7 +79,7 @@ impl Light {
     }
 
     pub fn off(&mut self) -> Result<(), DeviceError> {
-        let update = Update::BulbUpdate {
+        let update = DeviceUpdate::BulbUpdate {
             bulbs: self
                 .bulbs
                 .iter()

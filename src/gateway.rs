@@ -11,7 +11,7 @@ use mdns_sd::{ServiceDaemon, ServiceEvent};
 use crate::{
     device::Device,
     tradfri_coap::{TradfriAuthenticator, TradfriConnection},
-    Update,
+    DeviceUpdate, Group, GroupUpdate
 };
 
 #[derive(Debug, Clone)]
@@ -64,13 +64,13 @@ impl TradfriGateway {
         }
     }
 
-    pub fn devices(&mut self) -> Result<DevicesIterator, TradfriGatewayError> {
+    pub fn devices(&mut self) -> Result<DeviceIterator, TradfriGatewayError> {
         let connection = Rc::new(RefCell::new(self.create_connection()?));
         let ids = {
             let mut connection_borrowed = connection.borrow_mut();
             self.device_ids(&mut connection_borrowed)?
         };
-        Ok(DevicesIterator {
+        Ok(DeviceIterator {
             ids,
             connection,
             gateway: Rc::new(RefCell::new(self.clone())),
@@ -119,17 +119,59 @@ impl TradfriGateway {
         Ok(device_ids)
     }
 
-    pub fn groups(&mut self) -> Result<DevicesIterator, TradfriGatewayError> {
+    pub fn groups(&mut self) -> Result<GroupIterator, TradfriGatewayError> {
         let connection = Rc::new(RefCell::new(self.create_connection()?));
         let ids = {
             let mut connection_borrowed = connection.borrow_mut();
-            self.device_ids(&mut connection_borrowed)?
+            self.group_ids(&mut connection_borrowed)?
         };
-        Ok(DevicesIterator {
+        Ok(GroupIterator {
             ids,
             connection,
             gateway: Rc::new(RefCell::new(self.clone())),
         })
+    }
+
+    pub fn group(&mut self, id: u32) -> Result<Group, TradfriGatewayError> {
+        let mut connection = self.create_connection()?;
+        self.group_with_connection(id, &mut connection)
+    }
+
+    pub fn group_with_connection(
+        &mut self,
+        id: u32,
+        connection: &mut TradfriConnection,
+    ) -> Result<Group, TradfriGatewayError> {
+        let mut req = coap::CoAPRequest::new();
+        req.set_path(&format!("15004/{}", id));
+        req.set_method(coap::Method::Get);
+
+        let response = self.coap_request(req, Some(connection))?;
+        let group = match Group::new(self.clone(), &response.message.payload) {
+            Ok(d) => d,
+            Err(e) => {
+                return Err(TradfriGatewayError::DeviceError(
+                    id.to_string(),
+                    e.to_string(),
+                ))
+            }
+        };
+
+        Ok(group)
+    }
+
+    fn group_ids(
+        &mut self,
+        connection: &mut TradfriConnection,
+    ) -> Result<Vec<u32>, TradfriGatewayError> {
+        let mut req = CoAPRequest::new();
+        req.set_path("15004");
+        req.set_method(coap::Method::Get);
+
+        let response = self.coap_request(req, Some(connection))?;
+        let device_ids: Vec<u32> = serde_json::from_slice(&response.message.payload)?;
+
+        Ok(device_ids)
     }
 
     pub(crate) fn create_connection(&self) -> Result<TradfriConnection, TradfriGatewayError> {
@@ -143,11 +185,27 @@ impl TradfriGateway {
     pub(crate) fn update_device(
         &mut self,
         id: u32,
-        update: &Update,
+        update: &DeviceUpdate,
         connection: Option<&mut TradfriConnection>,
     ) -> Result<(), TradfriGatewayError> {
         let mut req = coap::CoAPRequest::new();
         req.set_path(&format!("15001/{}", id));
+        req.set_method(coap::Method::Put);
+        req.message.payload = serde_json::to_vec(&update)?;
+
+        self.coap_request(req, connection)?;
+
+        Ok(())
+    }
+
+    pub(crate) fn update_group(
+        &mut self,
+        id: u32,
+        update: &GroupUpdate,
+        connection: Option<&mut TradfriConnection>,
+    ) -> Result<(), TradfriGatewayError> {
+        let mut req = coap::CoAPRequest::new();
+        req.set_path(&format!("15004/{}", id));
         req.set_method(coap::Method::Put);
         req.message.payload = serde_json::to_vec(&update)?;
 
@@ -206,13 +264,13 @@ impl TradfriGateway {
     }
 }
 
-pub struct DevicesIterator {
+pub struct DeviceIterator {
     ids: Vec<u32>,
     connection: Rc<RefCell<TradfriConnection>>,
     gateway: Rc<RefCell<TradfriGateway>>,
 }
 
-impl Iterator for DevicesIterator {
+impl Iterator for DeviceIterator {
     type Item = Result<Device, TradfriGatewayError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -223,10 +281,30 @@ impl Iterator for DevicesIterator {
     }
 }
 
+pub struct GroupIterator {
+    ids: Vec<u32>,
+    connection: Rc<RefCell<TradfriConnection>>,
+    gateway: Rc<RefCell<TradfriGateway>>,
+}
+
+impl Iterator for GroupIterator {
+    type Item = Result<Group, TradfriGatewayError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let id = self.ids.pop()?;
+        let mut connection_borrowed = self.connection.borrow_mut();
+        let mut gateway_borrowed = self.gateway.borrow_mut();
+        Some(gateway_borrowed.group_with_connection(id, &mut connection_borrowed))
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum TradfriGatewayError {
     #[error("Error getting device with id: {0}, error: {1}")]
     DeviceError(String, String),
+
+    #[error("Error getting group with id: {0}, error: {1}")]
+    GroupError(String, String),
 
     #[error("COAP error: {0}")]
     CoapError(#[from] crate::tradfri_coap::Error),

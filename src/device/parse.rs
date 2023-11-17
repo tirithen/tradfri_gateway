@@ -1,6 +1,6 @@
-use serde::{de, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
-use super::{ColdWarmColor, RgbColor};
+use crate::{ColdWarmColor, RgbColor, serialization::bool_from_int};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DeviceTypeParsed {
@@ -69,6 +69,8 @@ impl BulbParsed {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LedDriverParsed {
+    #[serde(rename = "5712")]
+    pub transition_time: u32,
     #[serde(rename = "5850", deserialize_with = "bool_from_int")]
     pub on: bool,
     #[serde(rename = "5851")]
@@ -85,6 +87,8 @@ pub struct BulbColdWarmHexParsed {
     pub saturation: Option<u32>,
     #[serde(rename = "5711")]
     pub color_temperature: Option<u32>,
+    // #[serde(rename = "5712")]
+    // pub transition_time: u32,
     #[serde(rename = "5850", deserialize_with = "bool_from_int")]
     pub on: bool,
     #[serde(rename = "5851")]
@@ -129,18 +133,4 @@ pub struct BulbRgbXYParsed {
     pub on: bool,
     #[serde(rename = "5851")]
     pub brightness: u8,
-}
-
-fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    match u8::deserialize(deserializer)? {
-        0 => Ok(false),
-        1 => Ok(true),
-        other => Err(de::Error::invalid_value(
-            de::Unexpected::Unsigned(other as u64),
-            &"zero or one",
-        )),
-    }
 }

@@ -1,6 +1,3 @@
-mod color;
-pub use color::*;
-
 mod light;
 pub use light::*;
 
