@@ -1,7 +1,7 @@
-use crate::{TradfriGateway, tradfri_coap::TradfriConnection, TradfriGatewayError};
+use crate::{tradfri_coap::TradfriConnection, TradfriGateway, TradfriGatewayError};
 
 mod parse;
-use chrono::{DateTime, Utc, TimeZone, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 pub use parse::*;
 
 mod update;

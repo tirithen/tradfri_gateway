@@ -2,9 +2,9 @@ mod color;
 mod device;
 mod gateway;
 mod group;
+mod serialization;
 mod tradfri_coap;
 mod udp_dtls;
-mod serialization;
 
 pub use crate::color::*;
 pub use crate::device::*;

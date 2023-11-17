@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, Serializer, de};
+use serde::{de, Deserialize, Deserializer, Serializer};
 
 pub(crate) fn option_bool_from_int<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
 where
@@ -14,7 +14,10 @@ where
     }
 }
 
-pub(crate) fn option_int_from_bool<S>(value: &Option<bool>, serializer: S) -> Result<S::Ok, S::Error>
+pub(crate) fn option_int_from_bool<S>(
+    value: &Option<bool>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

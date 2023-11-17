@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ColdWarmColor, RgbColor, serialization::bool_from_int};
+use crate::{serialization::bool_from_int, ColdWarmColor, RgbColor};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct DeviceTypeParsed {

@@ -11,7 +11,7 @@ use mdns_sd::{ServiceDaemon, ServiceEvent};
 use crate::{
     device::Device,
     tradfri_coap::{TradfriAuthenticator, TradfriConnection},
-    DeviceUpdate, Group, GroupUpdate
+    DeviceUpdate, Group, GroupUpdate,
 };
 
 #[derive(Debug, Clone)]

@@ -2,8 +2,8 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 
 use crate::{
     tradfri_coap::TradfriConnection, BulbColdWarmHexUpdate, BulbParsed, BulbRgbXYUpdate,
-    BulbUpdate, Device, DeviceError, DeviceInfoParsed, DriverUpdate, LightDeviceParsed,
-    TradfriGateway, DeviceUpdate,
+    BulbUpdate, Device, DeviceError, DeviceInfoParsed, DeviceUpdate, DriverUpdate,
+    LightDeviceParsed, TradfriGateway,
 };
 
 #[derive(Debug)]

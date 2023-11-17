@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ColdWarmColor, RgbColor, serialization::{option_bool_from_int, option_int_from_bool}};
+use crate::{
+    serialization::{option_bool_from_int, option_int_from_bool},
+    ColdWarmColor, RgbColor,
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]

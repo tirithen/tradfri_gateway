@@ -6,7 +6,11 @@ use crate::serialization::option_int_from_bool;
 pub struct GroupUpdate {
     #[serde(rename = "5712", skip_serializing_if = "Option::is_none")]
     pub transition_time: Option<u32>,
-    #[serde(rename = "5850", serialize_with = "option_int_from_bool", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "5850",
+        serialize_with = "option_int_from_bool",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub on: Option<bool>,
     #[serde(rename = "5851", skip_serializing_if = "Option::is_none")]
     pub brightness: Option<u8>,
