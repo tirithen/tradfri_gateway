@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.2.0](https://github.com/tirithen/tradfri_gateway/compare/v0.1.0...v0.2.0) (2023-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* Removes type state pattern from TradfriGateway,
+Device, and Light. Renames several struct/enum types, and removes the
+TradfriGatewayConnector.
+
+### Features
+
+* add groups ([917df10](https://github.com/tirithen/tradfri_gateway/commit/917df10ea98849381c76df8de15d45d995235708))
+
+
+### Bug Fixes
+
+* one put call per connection, simplify types ([27baba1](https://github.com/tirithen/tradfri_gateway/commit/27baba1be6c41b5b362b8bba863387d3cd72c02c))
+
 ## 0.1.0 (2023-11-16)
 
 
